@@ -666,9 +666,10 @@ function renderFileTree(files) {
     node.files.push({ name: parts[parts.length - 1] || path, path, file: f })
   }
 
+  const compareNames = (a, b) => (a === b ? 0 : a < b ? -1 : 1)
   const renderNodes = (node) => {
-    const dirs = [...node.dirs.entries()].sort(([a], [b]) => a.localeCompare(b))
-    const leafs = [...node.files].sort((a, b) => a.name.localeCompare(b.name))
+    const dirs = [...node.dirs.entries()].sort(([a], [b]) => compareNames(a, b))
+    const leafs = [...node.files].sort((a, b) => compareNames(a.name, b.name))
     return (
       dirs
         .map(
