@@ -1,0 +1,72 @@
+{
+  "title": "Add rate limiting to the API",
+  "subtitle": "feature/rate-limit → main · 5 files",
+  "steps": [
+    {
+      "title": "Rename the auth middleware to guards",
+      "summary": [
+        "The middleware now does more than authentication, so it moves to guards.ts.",
+        "This step is the move only — the behaviour change comes next — so the rename reads as a clean structural step."
+      ],
+      "files": [
+        { "file": "src/middleware/guards.ts", "part": "rename", "note": "Pure move — no content change here. The logic edits are shown in the next step." }
+      ]
+    },
+    {
+      "title": "Tighten the guard check",
+      "summary": "Inside the moved file, the guard becomes stricter — kept separate from the rename so the real behaviour change stands on its own.",
+      "files": [
+        {
+          "file": "src/middleware/guards.ts",
+          "part": "content",
+          "note": [
+            "checkAuth gains a strict mode: when on, it requires a longer token (length > 3) instead of just non-empty.",
+            "requireUser now opts into strict mode, so unauthenticated requests are rejected more aggressively.",
+            "MODULE_NAME updated to \"guards\" to match the new filename."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Add the token-bucket rate limiter",
+      "summary": "A new RateLimiter implementing a token-bucket algorithm, exposed as Express middleware.",
+      "files": [
+        {
+          "file": "src/middleware/rate-limit.ts",
+          "note": [
+            "New RateLimiter class with configurable capacity and refill-per-second.",
+            "Per-key token buckets refill continuously based on elapsed time.",
+            "Exposes middleware() that returns a 429 with a Retry-After header when a bucket is empty."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Wire the limiter into the app",
+      "summary": "Register the limiter ahead of the guards, and give the 429 path a typed error.",
+      "files": [
+        {
+          "file": "src/app.ts",
+          "note": [
+            "Instantiate RateLimiter(120, 2) and mount its middleware before requireUser.",
+            "Import path updated to the renamed ./middleware/guards module."
+          ]
+        },
+        {
+          "file": "src/errors.ts",
+          "note": "Add RateLimitError extending HttpError, so the 429 response has a typed error to throw."
+        }
+      ]
+    },
+    {
+      "title": "Cover the limiter with a test",
+      "summary": "A first test asserting the middleware shape; the bucket-math harness follows in a later PR.",
+      "files": [
+        {
+          "file": "test/rate-limit.test.ts",
+          "note": "Smoke test that RateLimiter.middleware() returns a function — a placeholder until the timing-based tests land."
+        }
+      ]
+    }
+  ]
+}

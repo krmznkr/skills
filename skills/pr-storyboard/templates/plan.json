@@ -1,0 +1,59 @@
+{
+  "title": "Add rate limiting to the API",
+  "subtitle": "feature/rate-limit → main · 6 files",
+  "steps": [
+    {
+      "title": "Rename the middleware module",
+      "summary": [
+        "Move auth.ts to guards.ts to reflect its broader role.",
+        "Structural only — the behaviour change lands in the next step."
+      ],
+      "files": [
+        { "file": "src/middleware/guards.ts", "part": "rename", "note": "Pure move; edits follow in the next step." },
+        { "file": "src/app.ts", "note": ["Update the import path to ./middleware/guards."] }
+      ]
+    },
+    {
+      "title": "Tighten the guard logic",
+      "summary": "The actual edits inside the moved file: a stricter check behind a new flag.",
+      "files": [
+        {
+          "file": "src/middleware/guards.ts",
+          "part": "content",
+          "note": [
+            "checkAuth gains a strict flag that requires a longer token.",
+            "requireUser opts into strict mode."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Add the token-bucket limiter",
+      "summary": "New RateLimiter class implementing a token-bucket algorithm, with a configurable window and burst allowance.",
+      "files": [
+        {
+          "file": "src/middleware/rate-limit.ts",
+          "note": [
+            "New RateLimiter with configurable capacity and refill rate.",
+            "Exposes middleware() that returns 429 + Retry-After when the bucket is empty."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Wire it into the request pipeline",
+      "summary": "Register the limiter before the router and surface a 429 with a Retry-After header.",
+      "files": [
+        { "file": "src/app.ts", "note": "Mount the limiter middleware ahead of the guards." },
+        { "file": "src/errors.ts", "note": "Add a typed RateLimitError for the 429 path." }
+      ]
+    },
+    {
+      "title": "Cover it with tests",
+      "summary": "Unit tests for the bucket math and an integration test asserting the 429 path.",
+      "files": [
+        { "file": "test/rate-limit.test.ts", "note": ["Assert requests within capacity pass.", "Assert the N+1th request gets a 429."] }
+      ]
+    }
+  ]
+}
