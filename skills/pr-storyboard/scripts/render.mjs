@@ -43,6 +43,8 @@ function esc(s) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
 }
 
 // Small stable hash (djb2) → base36, for anchor ids and localStorage keys.
@@ -633,6 +635,7 @@ const ICONS = {
   copy: '<svg viewBox="0 0 24 24" class="i"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
   check: '<svg viewBox="0 0 24 24" class="i"><path d="M20 6L9 17l-5-5"/></svg>',
   file: '<svg viewBox="0 0 24 24" class="i"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" class="i"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   keyboard: '<svg viewBox="0 0 24 24" class="i"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M10 13h4"/></svg>',
   arrow: '<svg viewBox="0 0 24 24" class="i" style="display:inline;vertical-align:middle"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
 }
@@ -644,17 +647,72 @@ function statusBadge(status) {
   return `<span class="badge ${s}">${label}</span>`
 }
 
+function fileDomId(f) {
+  return "f" + hash((f.newPath || f.path) + "|" + (f.oldPath || "") + "|" + (f.viewId || ""))
+}
+
+// Build a compact repository-style tree for the files shown in one step.
+// Directories sort before files; paths always start at the repository root.
+function renderFileTree(files) {
+  const root = { dirs: new Map(), files: [] }
+  for (const f of files.filter((file) => !file.missing)) {
+    const path = f.newPath || f.path
+    const parts = String(path).split("/").filter(Boolean)
+    let node = root
+    for (const dir of parts.slice(0, -1)) {
+      if (!node.dirs.has(dir)) node.dirs.set(dir, { dirs: new Map(), files: [] })
+      node = node.dirs.get(dir)
+    }
+    node.files.push({ name: parts[parts.length - 1] || path, path, file: f })
+  }
+
+  const renderNodes = (node) => {
+    const dirs = [...node.dirs.entries()].sort(([a], [b]) => a.localeCompare(b))
+    const leafs = [...node.files].sort((a, b) => a.name.localeCompare(b.name))
+    return (
+      dirs
+        .map(
+          ([name, child]) =>
+            `<li class="tree-node"><details class="tree-dir" open>` +
+            `<summary><span class="tree-chev">${ICONS.chevron}</span><span class="tree-folder">${ICONS.folder}</span>` +
+            `<span class="tree-name">${esc(name)}</span></summary>` +
+            `<ul>${renderNodes(child)}</ul></details></li>`,
+        )
+        .join("") +
+      leafs
+        .map(({ name, path, file }) => {
+          const status = file.suppressRename && file.status === "renamed" ? "modified" : file.status || "modified"
+          const lang = langOf(path)
+          return (
+            `<li class="tree-node"><button class="tree-file" data-file-target="${fileDomId(file)}" title="${esc(path)}">` +
+            `<span class="tree-indent"></span><span class="ficon lang-${lang}">${iconOf(lang)}</span>` +
+            `<span class="tree-name">${esc(name)}</span><span class="tree-status ${esc(status)}" aria-hidden="true"></span>` +
+            `<span class="sr-only">${esc(status)}</span></button></li>`
+          )
+        })
+        .join("")
+    )
+  }
+
+  const count = files.filter((file) => !file.missing).length
+  return (
+    `<aside class="file-tree" aria-label="Changed files in this step">` +
+    `<div class="tree-head"><span>Changed files</span><span>${count}</span></div>` +
+    `<ul class="tree-root">${renderNodes(root)}</ul></aside>`
+  )
+}
+
 function renderFile(f) {
   if (f.missing) {
     return (
-      `<div class="file placeholder"><div class="file-head">` +
+      `<div class="file placeholder" data-file><div class="file-head">` +
       `<span class="ficon ph">${ICONS.file}</span>` +
       `<span class="path" title="${esc(f.path)}"><span class="p-name">${esc(splitPath(f.path).name)}</span></span>` +
       `<span class="badge missing">Not in diff</span></div></div>`
     )
   }
   const lang = langOf(f.newPath || f.path)
-  const fileId = "f" + hash((f.newPath || f.path) + "|" + (f.oldPath || "") + "|" + (f.viewId || ""))
+  const fileId = fileDomId(f)
   const copyPath = f.newPath || f.path
   const isRename = f.status === "renamed" && f.oldPath !== f.newPath
   const showRenameTitle = isRename && !f.suppressRename
@@ -732,14 +790,6 @@ function renderStep(step, i, total) {
   const real = step.files.filter((f) => !f.missing)
   const add = real.reduce((n, f) => n + (f.additions || 0), 0)
   const del = real.reduce((n, f) => n + (f.deletions || 0), 0)
-  const chips = step.files
-    .map((f) => {
-      const p = f.newPath || f.path
-      const lang = langOf(p)
-      const name = p.split("/").pop()
-      return `<span class="chip" title="${esc(p)}"><span class="ficon lang-${lang}">${iconOf(lang)}</span>${esc(name)}</span>`
-    })
-    .join("")
   const n = i + 1
   const prev =
     i > 0
@@ -751,6 +801,7 @@ function renderStep(step, i, total) {
       : `<button class="btn step-nav-btn" data-goto="top">Back to top ↑</button>`
   return (
     `<section class="step" id="step-${n}" data-step="${n}" tabindex="-1">` +
+    renderFileTree(step.files) +
     `<div class="step-body">` +
     `<div class="step-head">` +
     `<span class="step-num">${n}</span>` +
@@ -759,7 +810,6 @@ function renderStep(step, i, total) {
     `<label class="review" title="Mark reviewed (R)"><input type="checkbox" class="review-box" data-step="${n}"><span class="review-face"><span class="review-check">${ICONS.check}</span></span><span class="review-label">Reviewed</span></label>` +
     `</div>` +
     (toBullets(step.summary).length ? `<div class="step-summary">${renderBullets(step.summary, "summary-list")}</div>` : "") +
-    (chips ? `<div class="chips">${chips}</div>` : "") +
     `<div class="files">${step.files.map(renderFile).join("")}</div>` +
     `<div class="step-foot">${prev}${next}</div>` +
     `</div>` +
@@ -903,7 +953,7 @@ kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px
 /* ---- header ---- */
 header.top{position:sticky;top:0;z-index:40;background:hsl(var(--background)/.92);backdrop-filter:blur(12px);
   border-bottom:1px solid hsl(var(--border))}
-.top-inner{max-width:1600px;margin:0 auto;padding:14px 28px 0}
+.top-inner{max-width:1800px;margin:0 auto;padding:14px 28px 0}
 .title-row{display:flex;align-items:flex-start;gap:16px}
 h1{font-size:18px;font-weight:650;margin:0;letter-spacing:-.01em}
 .sub{color:hsl(var(--muted));margin-top:3px;font-size:13px}
@@ -918,8 +968,8 @@ h1{font-size:18px;font-weight:650;margin:0;letter-spacing:-.01em}
 
 /* ---- layout (wide, no shift) ---- */
 :root{--header-h:96px}
-.wrap{max-width:1600px;margin:0 auto;padding:20px 28px 96px}
-.layout{display:grid;grid-template-columns:288px minmax(0,1fr);gap:32px;align-items:start}
+.wrap{max-width:1800px;margin:0 auto;padding:20px 28px 96px}
+.layout{display:grid;grid-template-columns:248px minmax(0,1fr);gap:24px;align-items:start}
 
 /* ---- sidebar ---- */
 nav.sidebar{position:sticky;top:calc(var(--header-h) + 12px);display:flex;flex-direction:column;gap:3px;
@@ -945,7 +995,7 @@ nav.sidebar{position:sticky;top:calc(var(--header-h) + 12px);display:flex;flex-d
 /* ---- steps: one at a time (paginated) ---- */
 main{min-width:0}
 .step{display:none;scroll-margin-top:calc(var(--header-h) + 8px)}
-.step.current{display:block;animation:fade .18s ease}
+.step.current{display:grid;grid-template-columns:216px minmax(0,1fr);gap:24px;animation:fade .18s ease}
 @keyframes fade{from{opacity:.4}to{opacity:1}}
 .step:focus{outline:none}
 .step-body{min-width:0}
@@ -975,10 +1025,6 @@ main{min-width:0}
 ul.summary-list{padding-left:20px}
 ul.summary-list li{margin:3px 0}
 p.summary-list{margin:0}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px}
-.chip{display:inline-flex;align-items:center;gap:7px;max-width:280px;font-size:12px;padding:4px 10px 4px 5px;
-  border-radius:999px;background:hsl(var(--card));border:1px solid hsl(var(--border));color:hsl(var(--muted-2))}
-.chip>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ficon{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 5px;flex:none;
   border-radius:5px;font-size:9.5px;font-weight:700;letter-spacing:.02em;background:hsl(var(--card-2));
   border:1px solid hsl(var(--border));color:hsl(var(--muted))}
@@ -986,6 +1032,33 @@ p.summary-list{margin:0}
 .ficon.lang-js{color:#e3b341}.ficon.lang-py{color:#6ea8dc}.ficon.lang-css{color:#c586e0}
 .ficon.lang-md{color:#589bff}.ficon.lang-json{color:#a1a1aa}.ficon.lang-go{color:#2bcadf}
 .ficon.lang-rs{color:#e0a483}.ficon.ph{color:hsl(var(--muted))}
+
+/* ---- changed-file tree ---- */
+.file-tree{position:sticky;top:calc(var(--header-h) + 12px);min-width:0;max-height:calc(100vh - var(--header-h) - 28px);
+  overflow:auto;padding:0 16px 8px 0;border-right:1px solid hsl(var(--border))}
+.tree-head{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 9px;
+  color:hsl(var(--muted));font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.tree-head span:last-child{font-variant-numeric:tabular-nums}
+.tree-root,.tree-dir ul{list-style:none;padding:0;margin:0}
+.tree-dir ul{padding-left:14px;margin-left:9px;border-left:1px solid hsl(var(--border)/.8)}
+.tree-dir>summary,.tree-file{width:100%;min-width:0;display:flex;align-items:center;gap:6px;height:30px;padding:0 6px;
+  border:0;border-radius:5px;background:transparent;color:hsl(var(--muted-2));font:12.5px/1.2 inherit;
+  text-align:left;list-style:none;cursor:pointer;transition:background .12s,color .12s}
+.tree-dir>summary::-webkit-details-marker{display:none}
+.tree-dir>summary:hover,.tree-file:hover{background:hsl(var(--card-2));color:hsl(var(--foreground))}
+.tree-chev{display:inline-flex;flex:none;transition:transform .12s;color:hsl(var(--muted))}
+.tree-chev .i{width:12px;height:12px}
+.tree-dir:not([open])>summary .tree-chev{transform:rotate(-90deg)}
+.tree-folder{display:inline-flex;flex:none;color:hsl(var(--muted))}
+.tree-folder .i{width:15px;height:15px}
+.tree-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree-indent{width:0;flex:none}
+.tree-file .ficon{min-width:19px;width:19px;height:18px;padding:0;font-size:8px;border:0;background:transparent}
+.tree-file.active{background:hsl(var(--primary)/.12);color:hsl(var(--foreground))}
+.tree-status{width:6px;height:6px;border-radius:999px;flex:none;margin-left:auto;background:hsl(var(--accent))}
+.tree-status.added{background:hsl(var(--green))}.tree-status.deleted{background:hsl(var(--red))}
+.tree-status.renamed{background:hsl(var(--primary))}.tree-status.missing{background:hsl(var(--muted))}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* per-step nav footer */
 .step-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:24px;
@@ -996,7 +1069,10 @@ p.summary-list{margin:0}
 
 /* ---- file card ---- */
 .files{display:flex;flex-direction:column;gap:14px}
-.file{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:var(--radius);overflow:hidden}
+.file{background:hsl(var(--card));border:1px solid hsl(var(--border));border-radius:var(--radius);overflow:hidden;
+  scroll-margin-top:calc(var(--header-h) + 16px)}
+.file.file-targeted{animation:file-target 1.35s ease}
+@keyframes file-target{0%,72%{border-color:hsl(var(--primary));box-shadow:0 0 0 3px hsl(var(--primary)/.16)}100%{border-color:hsl(var(--border));box-shadow:none}}
 .file.placeholder{border-style:dashed;background:transparent}
 .file-head{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;list-style:none;
   user-select:none;background:hsl(var(--card))}
@@ -1090,13 +1166,21 @@ body[data-view="split"] .diff.unified{display:none}
 .kb-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;font-size:13px}
 .kb-row .keys{display:flex;gap:5px}
 
-@media(max-width:1000px){
+@media(max-width:1150px){
   .layout{grid-template-columns:1fr}
   nav.sidebar{position:static;flex-direction:row;flex-wrap:wrap;max-height:none;margin-bottom:12px}
   .sidebar-label{width:100%}
   .nav-item{flex:0 1 auto}
   .nav-item .nt{-webkit-line-clamp:1;max-width:180px}
   .file-head{position:static}
+}
+@media(max-width:760px){
+  .top-inner,.wrap{padding-left:16px;padding-right:16px}
+  .step.current{grid-template-columns:1fr;gap:18px}
+  .file-tree{position:static;max-height:240px;padding:0 0 12px;border-right:0;border-bottom:1px solid hsl(var(--border))}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}.step.current,.file.file-targeted{animation:none}
 }
 </style>
 </head>
@@ -1214,6 +1298,21 @@ body[data-view="split"] .diff.unified{display:none}
     var b=e.target.closest("[data-goto]"); if(!b) return;
     e.preventDefault();
     if(b.dataset.goto==="top"){ showStep(0); } else { showStep(+b.dataset.goto); }
+  });
+
+  /* changed-file tree: reveal, select, and focus the matching diff */
+  var targetTimer;
+  document.addEventListener("click",function(e){
+    var b=e.target.closest("[data-file-target]"); if(!b) return;
+    var target=document.getElementById(b.dataset.fileTarget); if(!target) return;
+    e.preventDefault();
+    qa(".tree-file.active").forEach(function(x){x.classList.remove("active");x.removeAttribute("aria-current")});
+    b.classList.add("active"); b.setAttribute("aria-current","true");
+    target.open=true;
+    target.classList.remove("file-targeted"); void target.offsetWidth; target.classList.add("file-targeted");
+    var reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({behavior:reduced?"auto":"smooth",block:"start"});
+    clearTimeout(targetTimer); targetTimer=setTimeout(function(){target.classList.remove("file-targeted")},1400);
   });
 
   /* expand / collapse all */

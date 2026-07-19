@@ -78,7 +78,10 @@ actually enjoy reading. Renames get pulled apart from their edits automatically
   split: the move reads as a clean "File moved" step, the edits as their own
   step. No more untangling both at once. (More below.)
 - **The UI is genuinely nice.** shadcn-styled, light/dark, unified **or** split,
-  word-level + syntax highlighting, keyboard-first, review-progress tracking.
+  a per-step repository tree, word-level + syntax highlighting, keyboard-first,
+  review-progress tracking.
+- **Changed files stay easy to find.** Each step includes a folder tree rooted
+  at the project. Click a file to open, scroll to, and highlight its exact diff.
 - **One portable file.** No build, no server, no `npm install`. Opens from
   `file://`. Keep it, or send it to a teammate.
 

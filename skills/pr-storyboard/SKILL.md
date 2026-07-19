@@ -189,6 +189,9 @@ dependency-free HTML file that opens from `file://`. It already includes:
   side with aligned rows.
 - A wide, GitHub-like layout with a readable **step navigator** (full titles, no
   click-to-understand) and a header **progress bar**.
+- A repository-style **changed-file tree for the current step**, nested from the
+  project root. Clicking a file opens its card, scrolls to its diff, and briefly
+  highlights it.
 - **Per-file descriptions rendered as prominent bullets**, above each file's
   diff — this is what your `note`s become, so write them well.
 - File cards expanded by default, collapsible, with a **copy-path** button;

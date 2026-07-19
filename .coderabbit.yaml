@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  review_details: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!docs/images/**"
+  path_instructions:
+    - path: "skills/pr-storyboard/scripts/render.mjs"
+      instructions: >-
+        Preserve the dependency-free Node 16 renderer and its single-file,
+        file://-compatible output. Pay particular attention to HTML escaping,
+        deterministic output, keyboard access, responsive layout, and light and
+        dark theme behavior.
+    - path: "**/*.md"
+      instructions: >-
+        Keep agent-facing instructions terse and human-facing documentation
+        truthful. Flag behavior changes that are not synchronized between
+        SKILL.md and README.md, and keep exhaustive detail out of SKILL.md.
+  tools:
+    shellcheck:
+      enabled: true
+    markdownlint:
+      enabled: true
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+
+chat:
+  auto_reply: true
