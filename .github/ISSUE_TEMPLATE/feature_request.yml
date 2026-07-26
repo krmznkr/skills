@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose a user-visible improvement
+title: "[Feature]: "
+labels: []
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is difficult or impossible today, and who experiences it?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the successful result rather than only a particular implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Possible approach
+      description: Optional implementation ideas, alternatives, or constraints.
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Trade-offs
+      description: Compatibility, privacy, security, accessibility, performance, or maintenance concerns.

@@ -21,7 +21,8 @@ step, no server, no npm dependencies.
 [Why it exists](#why-it-exists) · [What it does](#what-it-does) ·
 [How it works](#how-it-works--the-agent-is-the-reviewer) ·
 [Install](#install) · [Invoke](#invoke) ·
-[Keyboard shortcuts](#keyboard-shortcuts)
+[Keyboard shortcuts](#keyboard-shortcuts) ·
+[Documentation](docs/README.md)
 
 ## Quickstart (30-second setup)
 
@@ -218,6 +219,14 @@ node skills/pr-storyboard/scripts/render.mjs \
 
 See [`skills/pr-storyboard/REFERENCE.md`](skills/pr-storyboard/REFERENCE.md)
 for every flag and the full `plan.json` schema.
+
+The repository-wide documentation explains the agent/renderer boundary,
+coverage model, artifact runtime, installation paths, trust boundary, and
+known quality gaps:
+
+- [`docs/README.md`](docs/README.md) — documentation map.
+- [`docs/architecture.md`](docs/architecture.md) — complete architecture.
+- [`docs/roadmap.md`](docs/roadmap.md) — missing safeguards and release work.
 
 ## Keyboard shortcuts
 
