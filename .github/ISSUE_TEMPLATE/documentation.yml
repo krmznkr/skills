@@ -1,0 +1,24 @@
+name: Documentation
+description: Report missing, unclear, or incorrect documentation
+title: "[Docs]: "
+labels: []
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Page or section
+      description: Link to the page, file, heading, or command involved.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is unclear or incorrect?
+      description: Explain what you tried to learn or do and where the documentation failed.
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Suggested correction
+      description: Optional replacement wording, example, diagram, or source.
