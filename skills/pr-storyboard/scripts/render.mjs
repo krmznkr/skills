@@ -1402,9 +1402,13 @@ body[data-view="split"] .diff.unified{display:none}
 
 // --------------------------------------------------------------- main
 function openInBrowser(path) {
+  // Never route the path through a shell (`cmd /c start` re-parses it); pass it
+  // as a plain argument so unusual characters in the path stay inert.
   const plat = process.platform
-  const cmd = plat === "darwin" ? "open" : plat === "win32" ? "cmd" : "xdg-open"
-  const args = plat === "win32" ? ["/c", "start", "", path] : [path]
+  const [cmd, args] =
+    plat === "darwin" ? ["open", [path]]
+    : plat === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", path]]
+    : ["xdg-open", [path]]
   spawn(cmd, args, { stdio: "ignore", detached: true }).unref()
 }
 
