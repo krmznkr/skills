@@ -4,13 +4,13 @@ This file is the shared source of truth for agents and contributors working in
 this repo. `AGENTS.md` is a symlink to it, so every harness reads the same
 instructions.
 
-This repository ships a single skill, **pr-storyboard**, but keeps a small,
-conventional layout so it stays easy to reason about (and easy to grow later).
+This repository ships **pr-storyboard** (the flagship) and
+**monet-impressionism**, in a small, conventional layout.
 
 ## Layout
 
 ```
-skills/pr-storyboard/
+skills/<name>/          # pr-storyboard, monet-impressionism
   SKILL.md            # required, agent-facing: when + how
   REFERENCE.md        # deep detail (plan.json schema, CLI), loaded on demand
   templates/          # starting-point plan.json
