@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Monet Impressionism — Generative Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+<style>
+  :root {
+    --bg1: #f7f4ef; --bg2: #efe9df; --ink: #2b2622; --muted: #7c736a;
+    --line: #e3dbcf; --accent: #b5714f; --accent2: #7a94a6; --card: #fffdf9;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: 'Poppins', system-ui, sans-serif; color: var(--ink);
+    background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+    display: flex; min-height: 100vh;
+  }
+  #sidebar {
+    width: 320px; flex: 0 0 320px; padding: 24px 22px; overflow-y: auto;
+    background: rgba(255,253,249,.72); backdrop-filter: blur(6px);
+    border-right: 1px solid var(--line); height: 100vh; position: sticky; top: 0;
+  }
+  #stage {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 32px; min-width: 0;
+  }
+  h1 { font-family: 'Lora', serif; font-size: 20px; font-weight: 600; margin: 0 0 2px; }
+  .sub { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+  .section { margin-bottom: 22px; }
+  .section h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--muted); font-weight: 600; margin: 0 0 12px;
+  }
+  .row { margin-bottom: 14px; }
+  .row label { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 6px; }
+  .row label .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  select, input[type=number], input[type=text] {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); font-family: inherit; font-size: 13px; color: var(--ink);
+  }
+  .seedbox { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .seedbox .seedval {
+    font-family: 'Lora', serif; font-size: 26px; font-weight: 600; flex: 1;
+  }
+  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    flex: 1; min-width: 64px; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 9px; background: var(--card); color: var(--ink);
+    font-family: inherit; font-size: 12.5px; cursor: pointer; transition: .15s;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { filter: brightness(1.06); color: #fff; }
+  .jump { display: flex; gap: 6px; margin-top: 8px; }
+  .jump input { flex: 1; }
+  .jump button { flex: 0 0 auto; }
+  #canvas-holder {
+    box-shadow: 0 24px 60px rgba(50,40,30,.28), 0 4px 12px rgba(0,0,0,.12);
+    border-radius: 4px; overflow: hidden; background: #ddd; line-height: 0;
+  }
+  #canvas-holder canvas { max-height: 88vh; width: auto !important; height: auto !important; display: block; }
+  .credit { font-size: 10.5px; color: var(--muted); margin-top: 26px; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <aside id="sidebar">
+    <h1>Monet Studio</h1>
+    <div class="sub">Generative impressionism · original works</div>
+
+    <div class="section">
+      <h2>Seed</h2>
+      <div class="seedbox">
+        <div class="seedval" id="seedDisplay">0</div>
+      </div>
+      <div class="btnrow">
+        <button id="btnPrev">‹ Prev</button>
+        <button id="btnNext">Next ›</button>
+        <button id="btnRand">Random</button>
+      </div>
+      <div class="jump">
+        <input type="number" id="seedInput" placeholder="jump to seed…" />
+        <button id="btnGo">Go</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Parameters</h2>
+      <div class="row">
+        <label for="pSeries">Series</label>
+        <select id="pSeries">
+          <option value="lilies-morning">Water Lilies — Morning</option>
+          <option value="lilies-twilight">Water Lilies — Twilight</option>
+          <option value="haystacks-sunset">Haystacks — Sunset</option>
+          <option value="poplars-midday">Poplars — Midday</option>
+          <option value="rouen-fog">Rouen — Fog</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="pStrokeCount">Stroke Count <span class="val" id="vStrokeCount"></span></label>
+        <input type="range" id="pStrokeCount" min="1500" max="14000" step="100" />
+      </div>
+      <div class="row">
+        <label for="pStrokeLength">Stroke Length <span class="val" id="vStrokeLength"></span></label>
+        <input type="range" id="pStrokeLength" min="6" max="42" step="1" />
+      </div>
+      <div class="row">
+        <label for="pStrokeWidth">Stroke Width <span class="val" id="vStrokeWidth"></span></label>
+        <input type="range" id="pStrokeWidth" min="2" max="16" step="1" />
+      </div>
+      <div class="row">
+        <label for="pColorJitter">Color Jitter <span class="val" id="vColorJitter"></span></label>
+        <input type="range" id="pColorJitter" min="0" max="30" step="1" />
+      </div>
+      <div class="row">
+        <label for="pNoiseScale">Noise Scale <span class="val" id="vNoiseScale"></span></label>
+        <input type="range" id="pNoiseScale" min="0.002" max="0.02" step="0.001" />
+      </div>
+      <div class="row">
+        <label for="pWaterlineY">Waterline Y <span class="val" id="vWaterlineY"></span></label>
+        <input type="range" id="pWaterlineY" min="0.2" max="0.75" step="0.01" />
+      </div>
+      <div class="row">
+        <label for="pLayerPasses">Layer Passes <span class="val" id="vLayerPasses"></span></label>
+        <input type="range" id="pLayerPasses" min="2" max="5" step="1" />
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Actions</h2>
+      <div class="btnrow">
+        <button class="primary" id="btnRegen">Regenerate</button>
+        <button id="btnReset">Reset</button>
+        <button id="btnDownload">Download PNG</button>
+      </div>
+    </div>
+
+    <div class="credit">
+      Original generative work in the style of Impressionism. No specific
+      painting is reproduced. Same seed + params reproduce an identical canvas.
+    </div>
+  </aside>
+
+  <main id="stage">
+    <div id="canvas-holder"></div>
+  </main>
+
+<script>
+// ---------------------------------------------------------------------------
+// Monet-style generative impressionism engine
+// ---------------------------------------------------------------------------
+const W = 900, H = 1200;
+const GX = 90, GY = 120; // underpainting grid resolution
+
+// Default parameter set. `series` selects a curated HSB palette + mood.
+const DEFAULTS = {
+  series: 'lilies-morning',
+  seed: 0,
+  strokeCount: 7000,
+  strokeLength: 20,
+  strokeWidth: 8,
+  colorJitter: 12,
+  noiseScale: 0.008,
+  waterlineY: 0.46,
+  layerPasses: 4,
+};
+let params = Object.assign({}, DEFAULTS);
+
+// Curated palettes — moods, NOT fixed images. All HSB (360,100,100).
+// sky/water anchors + accent hues; shadows lean complementary/cool.
+const PALETTES = {
+  'lilies-morning': {
+    lily: true,
+    skyTop:[205,28,94], skyBot:[190,20,97],
+    waterTop:[190,34,84], waterBot:[172,40,55],
+    sun:[52,30,100], sunPos:[0.38,0.22],
+    shadow:[255,42,40], hi:[45,22,100],
+    accents:[[330,35,92],[130,42,70],[52,45,96]],
+    pad:[132,48,58],
+  },
+  'lilies-twilight': {
+    lily: true,
+    skyTop:[268,40,52], skyBot:[318,34,74],
+    waterTop:[250,44,44], waterBot:[228,52,26],
+    sun:[24,55,96], sunPos:[0.62,0.30],
+    shadow:[260,55,30], hi:[36,40,98],
+    accents:[[320,48,80],[190,45,66],[30,55,92]],
+    pad:[158,46,44],
+  },
+  'haystacks-sunset': {
+    lily: false,
+    skyTop:[28,45,96], skyBot:[44,55,100],
+    waterTop:[40,50,80], waterBot:[18,60,52],
+    sun:[46,60,100], sunPos:[0.30,0.30],
+    shadow:[250,50,34], hi:[50,35,100],
+    accents:[[20,65,88],[280,40,66],[52,60,96]],
+  },
+  'poplars-midday': {
+    lily: false,
+    skyTop:[210,32,96], skyBot:[196,26,100],
+    waterTop:[150,44,70], waterBot:[128,52,44],
+    sun:[54,28,100], sunPos:[0.5,0.18],
+    shadow:[235,48,36], hi:[55,30,100],
+    accents:[[110,55,72],[85,60,80],[200,35,90]],
+  },
+  'rouen-fog': {
+    lily: false,
+    skyTop:[210,10,88], skyBot:[40,12,92],
+    waterTop:[210,14,78], waterBot:[220,20,58],
+    sun:[45,18,96], sunPos:[0.55,0.26],
+    shadow:[240,30,44], hi:[44,14,96],
+    accents:[[30,20,84],[210,18,80],[280,16,72]],
+  },
+};
+
+let grid;          // GY x GX array of [h,s,b]
+let inspecting=false;
+
+function lerp3(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+function clampHSB(c){ return [ (c[0]%360+360)%360, Math.max(0,Math.min(100,c[1])), Math.max(0,Math.min(100,c[2])) ]; }
+
+// Build the underpainting map: sky->water gradient, sun glow, ripple banding,
+// complementary shadow darkening toward foreground.
+function buildGrid(P){
+  grid = [];
+  const wl = params.waterlineY;
+  for (let j=0;j<GY;j++){
+    const row=[];
+    const v = j/(GY-1);              // 0 top .. 1 bottom
+    for (let i=0;i<GX;i++){
+      const u = i/(GX-1);
+      let c;
+      const skyC = lerp3(P.skyTop, P.skyBot, Math.min(1, v/wl));
+      let watC = lerp3(P.waterTop, P.waterBot, Math.max(0, (v-wl)/(1-wl)));
+      {
+        const band = Math.sin(v*46 + Math.sin(u*6)*1.4) * 0.5 + 0.5;
+        watC = [watC[0], watC[1] + band*6 - 3, watC[2] + band*7 - 2];
+      }
+      // soft horizon: blend sky<->water across a band so no hard seam
+      const half = 0.05;                     // half-width of the blend band
+      if (v < wl - half){
+        c = skyC;
+      } else if (v > wl + half){
+        c = watC;
+      } else {
+        const t = (v - (wl-half)) / (2*half); // 0..1 sky->water
+        const s = t*t*(3-2*t);                // smoothstep
+        c = lerp3(skyC, watC, s);
+      }
+      // sun / atmosphere glow
+      const dx = u - P.sunPos[0], dy = v - P.sunPos[1];
+      const d = Math.sqrt(dx*dx + dy*dy);
+      const glow = Math.max(0, 1 - d/0.55);
+      c = lerp3(c, P.sun, glow*glow*0.55);
+      // complementary shadow darkening toward foreground
+      const fg = Math.max(0, (v-0.55)/0.45);
+      c = lerp3(c, [P.shadow[0], P.shadow[1], P.shadow[2]], fg*0.28);
+      row.push(clampHSB(c));
+    }
+    grid.push(row);
+  }
+}
+
+function sampleGrid(x,y){
+  const gx = Math.max(0, Math.min(GX-1, (x/W)*(GX-1)));
+  const gy = Math.max(0, Math.min(GY-1, (y/H)*(GY-1)));
+  const i0=Math.floor(gx), j0=Math.floor(gy);
+  const i1=Math.min(GX-1,i0+1), j1=Math.min(GY-1,j0+1);
+  const fx=gx-i0, fy=gy-j0;
+  const a=lerp3(grid[j0][i0],grid[j0][i1],fx);
+  const b=lerp3(grid[j1][i0],grid[j1][i1],fx);
+  return lerp3(a,b,fy);
+}
+
+// orientation field: water ~horizontal (ripples), sky gentle horizontal,
+// banks/foliage free-flowing from Perlin.
+function strokeAngle(x,y){
+  const v = y/H;
+  const n = noise(x*params.noiseScale, y*params.noiseScale, 3.1);
+  if (v > params.waterlineY){
+    return (n-0.5)*0.5;                 // near-horizontal ripple
+  } else if (v < params.waterlineY*0.7){
+    return (n-0.5)*0.9;                 // sky, gently horizontal
+  }
+  return (n-0.5)*TWO_PI;                // banks/foliage free
+}
+
+// one impasto stroke = 3 stacked ellipses (drag shadow, body, highlight ridge)
+function impasto(x,y,ang,len,wid,col,alpha){
+  const [h,s,b]=col;
+  push();
+  translate(x,y); rotate(ang);
+  noStroke();
+  // drag shadow edge (darker, cooler)
+  fill((h+8)%360, Math.min(100,s+8), Math.max(0,b-22), alpha);
+  ellipse(-len*0.06, wid*0.12, len, wid);
+  // body
+  fill(h, s, b, alpha);
+  ellipse(0, 0, len*0.94, wid*0.9);
+  // highlight ridge (warmer, brighter, offset)
+  fill((h+352)%360, Math.max(0,s-14), Math.min(100,b+16), alpha*0.9);
+  ellipse(len*0.08, -wid*0.16, len*0.62, wid*0.4);
+  pop();
+}
+
+function jitterCol(col, amt){
+  return clampHSB([
+    col[0] + random(-amt, amt),
+    col[1] + random(-amt*0.7, amt*0.7),
+    col[2] + random(-amt*0.8, amt*0.8),
+  ]);
+}
+
+function waterLilies(P){
+  const rows = 7;
+  for (let r=0;r<rows;r++){
+    const vy = params.waterlineY + (1-params.waterlineY)*(0.1 + r/(rows-0.2));
+    if (vy>=1) continue;
+    const y = vy*H;
+    const scale = map(vy, params.waterlineY, 1, 0.4, 1.5);
+    const count = Math.floor(random(2,5)+r*0.6);
+    for (let k=0;k<count;k++){
+      const x = random(W*0.05, W*0.95);
+      const pw = random(46,86)*scale, ph = pw*random(0.42,0.6);
+      const base = sampleGrid(x,y);
+      const pad = P.pad || [140,45,52];
+      // pad color: palette green-teal anchor, deepened with depth, nudged
+      // toward the local water so it reads as vegetation IN the pond.
+      const padC = clampHSB([
+        pad[0] + random(-8,8),
+        pad[1] + random(-6,6),
+        pad[2]*scale*0.9 + 6,
+      ]);
+      // pad
+      push(); translate(x,y); rotate(random(-0.3,0.3)); noStroke();
+      fill(padC[0], padC[1], max(14,padC[2]-10), 82);
+      ellipse(0,0,pw,ph);
+      fill((padC[0]+6)%360, max(0,padC[1]-8), min(100,padC[2]+12), 60);
+      ellipse(-pw*0.08,-ph*0.1,pw*0.7,ph*0.6);
+      pop();
+      // blossom (6 petals + bright center) on some pads
+      if (random()<0.55){
+        const ac = random(P.accents);
+        push(); translate(x+random(-8,8), y-ph*0.1);
+        noStroke();
+        for (let p=0;p<6;p++){
+          const a = p/6*TWO_PI + random(-0.1,0.1);
+          const pr = pw*0.22*scale;
+          fill(ac[0], ac[1], ac[2], 82);
+          ellipse(cos(a)*pr*0.6, sin(a)*pr*0.6, pr*0.9, pr*0.5);
+        }
+        fill(P.hi[0], max(0,P.hi[1]-6), min(100,P.hi[2]), 92);
+        ellipse(0,0,pw*0.16,pw*0.16);
+        pop();
+      }
+    }
+  }
+}
+
+// canvas grain + soft vignette finish
+function finish(){
+  noStroke();
+  for (let i=0;i<2600;i++){
+    const x=random(W), y=random(H);
+    const c=sampleGrid(x,y);
+    fill(c[0], c[1], c[2], random(3,9));
+    ellipse(x,y,random(1,2.4),random(1,2.4));
+  }
+  // vignette
+  for (let r=0;r<160;r++){
+    noFill(); stroke(250,30,12, 0.5);
+    strokeWeight(2);
+    const inset=r*1.2;
+    rect(-inset, -inset, W+inset*2, H+inset*2, 40);
+  }
+}
+
+// ---- main paint: deterministic from seed ----------------------------------
+function paint(){
+  const P = PALETTES[params.series] || PALETTES['lilies-morning'];
+  randomSeed(params.seed);
+  noiseSeed(params.seed);
+  buildGrid(P);
+  colorMode(HSB,360,100,100,100);
+  noStroke();
+
+  // base wash fill from grid
+  for (let j=0;j<GY;j++) for (let i=0;i<GX;i++){
+    const c=grid[j][i];
+    fill(c[0],c[1],c[2],100);
+    rect(i/GX*W, j/GY*H, W/GX+1, H/GY+1);
+  }
+
+  const passes = params.layerPasses;
+  for (let pass=0; pass<passes; pass++){
+    const t = pass/(passes-1);                    // 0 broad .. 1 fine
+    const n = Math.floor(params.strokeCount * (1 - t*0.7) / passes * passes/ (pass+1));
+    const count = Math.floor(params.strokeCount * map(pass,0,passes-1,0.42,0.12));
+    const len = params.strokeLength * (1 - t*0.55);
+    const wid = params.strokeWidth * (1 - t*0.5);
+    const alpha = map(pass,0,passes-1, 22, 70);
+    for (let k=0;k<count;k++){
+      const x=random(W), y=random(H);
+      const ang=strokeAngle(x,y);
+      let col=jitterCol(sampleGrid(x,y), params.colorJitter*(1+t*0.5));
+      // sparse warm highlight flecks on last pass
+      if (pass===passes-1 && random()<0.25){
+        col=[ (P.hi[0])%360, max(0,P.hi[1]-random(0,10)), min(100,P.hi[2]) ];
+      }
+      impasto(x,y,ang, len*random(0.7,1.2), wid*random(0.7,1.2), col, alpha*random(0.7,1));
+    }
+  }
+
+  if (P.lily) waterLilies(P);
+  finish();
+  noLoop();
+}
+
+// ---------------------------------------------------------------------------
+// p5 lifecycle
+// ---------------------------------------------------------------------------
+function setup(){
+  const cnv = createCanvas(W,H);
+  cnv.parent('canvas-holder');
+  colorMode(HSB,360,100,100,100);
+  pixelDensity(1);
+  syncUI();
+  paint();
+}
+// no draw(); noLoop() active. Glue calls paint() directly.
+
+// ---------------------------------------------------------------------------
+// UI glue
+// ---------------------------------------------------------------------------
+const ctrl = {
+  series:'pSeries', strokeCount:'pStrokeCount', strokeLength:'pStrokeLength',
+  strokeWidth:'pStrokeWidth', colorJitter:'pColorJitter', noiseScale:'pNoiseScale',
+  waterlineY:'pWaterlineY', layerPasses:'pLayerPasses',
+};
+const readout = {
+  strokeCount:'vStrokeCount', strokeLength:'vStrokeLength', strokeWidth:'vStrokeWidth',
+  colorJitter:'vColorJitter', noiseScale:'vNoiseScale', waterlineY:'vWaterlineY',
+  layerPasses:'vLayerPasses',
+};
+
+// Push params -> UI controls + readouts. Safe to call headless.
+function syncUI(){
+  const g=(id)=>document.getElementById(id);
+  if (!g(ctrl.series)) return;
+  g('seedDisplay').textContent = params.seed;
+  for (const k in ctrl){
+    const el=g(ctrl[k]); if (el) el.value = params[k];
+  }
+  for (const k in readout){
+    const el=g(readout[k]); if (el) el.textContent = params[k];
+  }
+}
+
+function readUI(){
+  const g=(id)=>document.getElementById(id);
+  params.series = g(ctrl.series).value;
+  params.strokeCount = +g(ctrl.strokeCount).value;
+  params.strokeLength = +g(ctrl.strokeLength).value;
+  params.strokeWidth = +g(ctrl.strokeWidth).value;
+  params.colorJitter = +g(ctrl.colorJitter).value;
+  params.noiseScale = +g(ctrl.noiseScale).value;
+  params.waterlineY = +g(ctrl.waterlineY).value;
+  params.layerPasses = +g(ctrl.layerPasses).value;
+  syncUI();
+}
+
+function regen(){ readUI(); paint(); }
+
+function bind(){
+  const g=(id)=>document.getElementById(id);
+  if (!g('btnRegen')) return;
+  g('btnRegen').onclick = regen;
+  g('btnReset').onclick = ()=>{ params=Object.assign({}, DEFAULTS); syncUI(); paint(); };
+  g('btnDownload').onclick = ()=> saveCanvas('monet-'+params.series+'-'+params.seed, 'png');
+  g('btnPrev').onclick = ()=>{ params.seed=Math.max(0,params.seed-1); syncUI(); paint(); };
+  g('btnNext').onclick = ()=>{ params.seed+=1; syncUI(); paint(); };
+  g('btnRand').onclick = ()=>{ params.seed=Math.floor(Math.random()*99999); syncUI(); paint(); };
+  g('btnGo').onclick = ()=>{ const v=parseInt(g('seedInput').value); if(!isNaN(v)){ params.seed=v; syncUI(); paint(); } };
+  for (const k in ctrl){
+    const el=g(ctrl[k]);
+    el.addEventListener('input', ()=>{ if (k in readout) g(readout[k]).textContent = el.value; });
+    el.addEventListener('change', regen);
+  }
+}
+window.addEventListener('DOMContentLoaded', bind);
+
+// Expose engine hooks for headless rendering (scripts/render.mjs).
+window.paint = paint;
+window.syncUI = syncUI;
+window.regen = regen;
+Object.defineProperty(window, 'params', {
+  get(){ return params; },
+  set(v){ params = v; },
+});
+</script>
+</body>
+</html>

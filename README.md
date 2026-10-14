@@ -242,6 +242,12 @@ Intuitive, not vim. Press `?` in the storyboard for the full list.
 | `E` / `C` | Expand / collapse all files |
 | `T` | Toggle theme · `?` help · `Esc` close |
 
+## Also in this repo
+
+- [`monet-impressionism`](skills/monet-impressionism/SKILL.md) — generates
+  original Monet-style paintings as a seeded, interactive p5.js page. Select it
+  in `npx skills add krmznkr/skills`.
+
 ## What is a skill?
 
 A skill is a self-contained folder with a `SKILL.md` that tells an agent **when**
